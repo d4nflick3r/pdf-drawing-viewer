@@ -27,28 +27,46 @@ jobs:
         env:
           NODE_ENV: production
 
-      - name: Install Electron and electron-builder
-        run: npm install --no-save electron electron-builder
+      - name: Install Electron
+        run: npm install --no-save electron
 
-      - name: Patch package.json for Electron (add main, description, author)
+      - name: Package app manually from Electron binaries
+        shell: pwsh
         run: |
-          node -e "
-            const fs = require('fs');
-            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-            pkg.main = 'electron/main.cjs';
-            pkg.description = pkg.description || 'PDF technical drawing viewer';
-            pkg.author = pkg.author || 'PDF Drawing Viewer';
-            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
-            console.log('package.json patched successfully');
-          "
+          $src = "node_modules/electron/dist"
+          $out = "app-package"
 
-      - name: Build Windows zip
-        run: npx electron-builder --win --x64 --publish never
+          # Copy Electron binaries as the base
+          Copy-Item -Recurse "$src" "$out"
+
+          # Remove the default placeholder app
+          $defaultApp = "$out/resources/default_app.asar"
+          if (Test-Path $defaultApp) { Remove-Item $defaultApp }
+
+          # Create our app structure inside resources/app/
+          New-Item -ItemType Directory -Force -Path "$out/resources/app/dist"
+          New-Item -ItemType Directory -Force -Path "$out/resources/app/electron"
+
+          # Copy built frontend and main process
+          Copy-Item -Recurse "dist/public" "$out/resources/app/dist/"
+          Copy-Item "electron/main.cjs" "$out/resources/app/electron/"
+
+          # Write minimal package.json that tells Electron where to start
+          Set-Content -Path "$out/resources/app/package.json" -Value '{"name":"pdf-drawing-viewer","version":"1.0.0","main":"electron/main.cjs","description":"PDF Drawing Viewer"}'
+
+          # Rename the exe to something friendly
+          Rename-Item "$out/electron.exe" "PDF Drawing Viewer.exe"
+
+          # Zip the entire package
+          Compress-Archive -Path "$out/*" -DestinationPath "PDF-Drawing-Viewer-Windows.zip"
+
+          Write-Host "Done. Contents:"
+          Get-ChildItem "$out" | Select-Object Name
 
       - name: Upload Windows zip as artifact
         uses: actions/upload-artifact@v4
         with:
           name: PDF-Drawing-Viewer-Windows
-          path: dist-electron/*.zip
+          path: PDF-Drawing-Viewer-Windows.zip
           if-no-files-found: error
           retention-days: 30
