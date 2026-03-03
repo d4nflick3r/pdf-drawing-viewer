@@ -22,7 +22,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build frontend (with relative asset paths for file:// protocol)
+      - name: Build frontend (relative asset paths for file:// protocol)
         run: npx vite build --base=./
         env:
           NODE_ENV: production
@@ -30,10 +30,20 @@ jobs:
       - name: Install Electron and electron-builder
         run: npm install --no-save electron electron-builder
 
+      - name: Patch package.json for Electron (add main, description, author)
+        run: |
+          node -e "
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            pkg.main = 'electron/main.cjs';
+            pkg.description = pkg.description || 'PDF technical drawing viewer';
+            pkg.author = pkg.author || 'PDF Drawing Viewer';
+            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
+            console.log('package.json patched successfully');
+          "
+
       - name: Build Windows installer
-        run: npx electron-builder --win --x64
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx electron-builder --win --x64 --publish never
 
       - name: Upload Windows installer as artifact
         uses: actions/upload-artifact@v4
