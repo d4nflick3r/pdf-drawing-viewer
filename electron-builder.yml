@@ -1,6 +1,5 @@
 appId: com.drawingviewer.pdf
 productName: PDF Drawing Viewer
-electronEntryPoint: electron/main.cjs
 copyright: Copyright © 2025
 
 directories:
@@ -24,5 +23,3 @@ nsis:
   createDesktopShortcut: true
   createStartMenuShortcut: true
   shortcutName: PDF Drawing Viewer
-
-publish: null
