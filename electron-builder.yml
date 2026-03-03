@@ -11,15 +11,6 @@ files:
 
 win:
   target:
-    - target: nsis
+    - target: portable
       arch:
         - x64
-
-nsis:
-  oneClick: false
-  perMachine: false
-  allowElevation: true
-  allowToChangeInstallationDirectory: true
-  createDesktopShortcut: true
-  createStartMenuShortcut: true
-  shortcutName: PDF Drawing Viewer
