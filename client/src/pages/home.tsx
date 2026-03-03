@@ -213,23 +213,27 @@ export default function Home() {
 
     const pageAnnotations = annotations.filter((a) => a.pageNum === currentPage);
     for (const ann of pageAnnotations) {
+      const ax = ann.x * zoom;
+      const ay = ann.y * zoom;
+      const aw = ann.width * zoom;
+      const ah = ann.height * zoom;
       ctx.save();
       if (ann.type === "highlight") {
         ctx.fillStyle = ann.color;
-        ctx.fillRect(ann.x, ann.y, ann.width, ann.height);
+        ctx.fillRect(ax, ay, aw, ah);
         ctx.strokeStyle = ann.color.replace("80", "ff");
         ctx.lineWidth = 1.5;
-        ctx.strokeRect(ann.x, ann.y, ann.width, ann.height);
+        ctx.strokeRect(ax, ay, aw, ah);
       } else {
         ctx.fillStyle = ann.color;
-        ctx.fillRect(ann.x, ann.y, ann.width, ann.height);
+        ctx.fillRect(ax, ay, aw, ah);
         ctx.strokeStyle = ann.color.replace("80", "ff");
         ctx.lineWidth = 1.5;
-        ctx.strokeRect(ann.x, ann.y, ann.width, ann.height);
+        ctx.strokeRect(ax, ay, aw, ah);
         if (ann.note) {
           ctx.fillStyle = "#1a1a1a";
           ctx.font = "bold 11px sans-serif";
-          ctx.fillText("N", ann.x + 4, ann.y + 13);
+          ctx.fillText("N", ax + 4, ay + 13);
         }
       }
       ctx.restore();
@@ -237,17 +241,21 @@ export default function Home() {
 
     const pageMeasurements = measurements.filter((m) => m.pageNum === currentPage);
     for (const m of pageMeasurements) {
+      const cx1 = m.x1 * zoom;
+      const cy1 = m.y1 * zoom;
+      const cx2 = m.x2 * zoom;
+      const cy2 = m.y2 * zoom;
       ctx.save();
       ctx.strokeStyle = "#0066ff";
       ctx.lineWidth = 2;
       ctx.setLineDash([5, 3]);
       ctx.beginPath();
-      ctx.moveTo(m.x1, m.y1);
-      ctx.lineTo(m.x2, m.y2);
+      ctx.moveTo(cx1, cy1);
+      ctx.lineTo(cx2, cy2);
       ctx.stroke();
 
-      const mx = (m.x1 + m.x2) / 2;
-      const my = (m.y1 + m.y2) / 2;
+      const mx = (cx1 + cx2) / 2;
+      const my = (cy1 + cy2) / 2;
       const distLabel = `${m.realLength.toFixed(2)} ${m.unit}`;
       ctx.setLineDash([]);
 
@@ -279,10 +287,10 @@ export default function Home() {
 
       ctx.fillStyle = "#0066ff";
       ctx.beginPath();
-      ctx.arc(m.x1, m.y1, 4, 0, Math.PI * 2);
+      ctx.arc(cx1, cy1, 4, 0, Math.PI * 2);
       ctx.fill();
       ctx.beginPath();
-      ctx.arc(m.x2, m.y2, 4, 0, Math.PI * 2);
+      ctx.arc(cx2, cy2, 4, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
     }
@@ -290,23 +298,27 @@ export default function Home() {
     if (scaleCalibLine) {
       const sl = scaleCalibLine;
       ctx.save();
+      const slx1 = sl.x1 * zoom;
+      const sly1 = sl.y1 * zoom;
+      const slx2 = sl.x2 * zoom;
+      const sly2 = sl.y2 * zoom;
       ctx.strokeStyle = "#ff6600";
       ctx.lineWidth = 2;
       ctx.setLineDash([6, 3]);
       ctx.beginPath();
-      ctx.moveTo(sl.x1, sl.y1);
-      ctx.lineTo(sl.x2, sl.y2);
+      ctx.moveTo(slx1, sly1);
+      ctx.lineTo(slx2, sly2);
       ctx.stroke();
       ctx.setLineDash([]);
       ctx.fillStyle = "#ff6600";
       ctx.beginPath();
-      ctx.arc(sl.x1, sl.y1, 4, 0, Math.PI * 2);
+      ctx.arc(slx1, sly1, 4, 0, Math.PI * 2);
       ctx.fill();
       ctx.beginPath();
-      ctx.arc(sl.x2, sl.y2, 4, 0, Math.PI * 2);
+      ctx.arc(slx2, sly2, 4, 0, Math.PI * 2);
       ctx.fill();
-      const mx = (sl.x1 + sl.x2) / 2;
-      const my = (sl.y1 + sl.y2) / 2;
+      const mx = (slx1 + slx2) / 2;
+      const my = (sly1 + sly2) / 2;
       const label = "Scale ref";
       ctx.fillStyle = "rgba(200,80,0,0.85)";
       const tw = ctx.measureText(label).width + 12;
@@ -335,7 +347,7 @@ export default function Home() {
         ctx.stroke();
         ctx.setLineDash([]);
         const pxLen = distance(ds.x, ds.y, dc.x, dc.y);
-        const realLen = scale.calibrated ? pxLen / scale.pixelsPerUnit : 0;
+        const realLen = scale.calibrated ? (pxLen / zoom) / scale.pixelsPerUnit : 0;
         const label = scale.calibrated ? `${realLen.toFixed(2)} ${scale.unit}` : `${pxLen.toFixed(0)}px`;
         const mx = (ds.x + dc.x) / 2;
         const my = (ds.y + dc.y) / 2;
@@ -394,7 +406,7 @@ export default function Home() {
       }
       ctx.restore();
     }
-  }, [annotations, measurements, currentPage, tool, scale, selectedColor, scaleCalibLine]);
+  }, [annotations, measurements, currentPage, tool, scale, selectedColor, scaleCalibLine, zoom]);
 
   useEffect(() => {
     drawOverlay();
@@ -462,15 +474,20 @@ export default function Home() {
     if (tool === "measure") {
       const pxLen = distance(ds.x, ds.y, pos.x, pos.y);
       if (pxLen < 5) return;
-      const realLen = scale.calibrated ? pxLen / scale.pixelsPerUnit : pxLen;
+      const pdfX1 = ds.x / zoom;
+      const pdfY1 = ds.y / zoom;
+      const pdfX2 = pos.x / zoom;
+      const pdfY2 = pos.y / zoom;
+      const pdfLen = pxLen / zoom;
+      const realLen = scale.calibrated ? pdfLen / scale.pixelsPerUnit : pdfLen;
       const m: Measurement = {
         id: generateId(),
         pageNum: currentPage,
-        x1: ds.x,
-        y1: ds.y,
-        x2: pos.x,
-        y2: pos.y,
-        pixelLength: pxLen,
+        x1: pdfX1,
+        y1: pdfY1,
+        x2: pdfX2,
+        y2: pdfY2,
+        pixelLength: pdfLen,
         realLength: realLen,
         unit: scale.unit,
         label: "",
@@ -479,10 +496,10 @@ export default function Home() {
       setMeasurements((prev) => [...prev, m]);
       setTool("pan");
     } else if (tool === "highlight" || tool === "note") {
-      const rx = Math.min(ds.x, pos.x);
-      const ry = Math.min(ds.y, pos.y);
-      const rw = Math.abs(pos.x - ds.x);
-      const rh = Math.abs(pos.y - ds.y);
+      const rx = Math.min(ds.x, pos.x) / zoom;
+      const ry = Math.min(ds.y, pos.y) / zoom;
+      const rw = Math.abs(pos.x - ds.x) / zoom;
+      const rh = Math.abs(pos.y - ds.y) / zoom;
       if (rw < 5 || rh < 5) return;
       const ann: Partial<Annotation> = {
         id: generateId(),
@@ -504,17 +521,17 @@ export default function Home() {
       const pxLen = distance(sd.x, sd.y, pos.x, pos.y);
       if (pxLen < 5) return;
       scaleCalib.current = {
-        x1: sd.x, y1: sd.y,
-        x2: pos.x, y2: pos.y,
+        x1: sd.x / zoom, y1: sd.y / zoom,
+        x2: pos.x / zoom, y2: pos.y / zoom,
         pixelLength: pxLen,
       };
-      setScaleCalibLine({ x1: sd.x, y1: sd.y, x2: pos.x, y2: pos.y });
+      setScaleCalibLine({ x1: sd.x / zoom, y1: sd.y / zoom, x2: pos.x / zoom, y2: pos.y / zoom });
       scaleDrawStart.current = null;
       scaleDrawCurrent.current = null;
       setShowScaleDialog(true);
     }
     drawOverlay();
-  }, [tool, getCanvasCoords, scale, currentPage, selectedColor, drawOverlay]);
+  }, [tool, getCanvasCoords, scale, currentPage, selectedColor, drawOverlay, zoom]);
 
   const handleMouseLeave = useCallback(() => {
     if (isPanning.current) isPanning.current = false;
@@ -549,7 +566,8 @@ export default function Home() {
     if (scaleMode === "calibrate" && scaleCalib.current) {
       const realLen = parseFloat(scaleRealLength);
       if (!isNaN(realLen) && realLen > 0) {
-        const ppu = scaleCalib.current.pixelLength / realLen;
+        const pdfPxLen = scaleCalib.current.pixelLength / zoom;
+        const ppu = pdfPxLen / realLen;
         setScale({ pixelsPerUnit: ppu, unit: scaleUnit, drawingRatio: scaleRatio, calibrated: true });
         setMeasurements((prev) =>
           prev.map((m) => ({
@@ -563,7 +581,7 @@ export default function Home() {
       const parts = scaleRatio.split(":").map((p) => parseFloat(p.trim()));
       if (parts.length === 2 && parts[0] > 0 && parts[1] > 0) {
         const factor = parts[1] / parts[0];
-        const ppu = zoom / (factor * 0.001);
+        const ppu = 1 / (factor * 0.001);
         setScale({ pixelsPerUnit: ppu, unit: scaleUnit, drawingRatio: scaleRatio, calibrated: true });
         setMeasurements((prev) =>
           prev.map((m) => ({
