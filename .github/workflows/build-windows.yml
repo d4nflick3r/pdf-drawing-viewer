@@ -19,7 +19,12 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
-      - name: Install dependencies
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Node dependencies
         run: npm ci
 
       - name: Build frontend
@@ -27,81 +32,47 @@ jobs:
         env:
           NODE_ENV: production
 
-      - name: Install Electron
-        run: npm install --no-save electron
+      - name: Install Python packages
+        run: pip install pywebview pyinstaller
 
-      - name: Package app from Electron binaries
+      - name: Build Windows exe with PyInstaller
+        run: >
+          pyinstaller
+          --onefile
+          --noconsole
+          --name "PDF Drawing Viewer"
+          --add-data "dist/public;dist/public"
+          launcher.py
+
+      - name: Validate exe exists
         shell: pwsh
         run: |
-          $src = "node_modules/electron/dist"
-          $out = "app-package"
-
-          Copy-Item -Recurse "$src" "$out"
-
-          $defaultApp = "$out/resources/default_app.asar"
-          if (Test-Path $defaultApp) { Remove-Item $defaultApp }
-
-          New-Item -ItemType Directory -Force -Path "$out/resources/app/dist"
-          New-Item -ItemType Directory -Force -Path "$out/resources/app/electron"
-
-          Copy-Item -Recurse "dist/public" "$out/resources/app/dist/"
-          Copy-Item "electron/main.cjs" "$out/resources/app/electron/"
-
-          Set-Content -Path "$out/resources/app/package.json" -Value '{"name":"pdf-drawing-viewer","version":"1.0.0","main":"electron/main.cjs","description":"PDF Drawing Viewer"}'
-
-          Rename-Item "$out/electron.exe" "PDF Drawing Viewer.exe"
-
-      - name: Validate package structure
-        shell: pwsh
-        run: |
-          $errors = 0
-          $checks = @(
-            "app-package/PDF Drawing Viewer.exe",
-            "app-package/resources/app/electron/main.cjs",
-            "app-package/resources/app/dist/public/index.html",
-            "app-package/resources/app/package.json"
-          )
-          foreach ($file in $checks) {
-            if (Test-Path $file) { Write-Host "PASS: $file" }
-            else { Write-Host "FAIL: $file NOT FOUND"; $errors++ }
+          $exe = "dist\PDF Drawing Viewer.exe"
+          if (Test-Path $exe) {
+            $size = (Get-Item $exe).Length / 1MB
+            Write-Host "PASS: exe found, size $([math]::Round($size,1)) MB"
+          } else {
+            throw "FAIL: exe not found at $exe"
           }
-          if ($errors -gt 0) { throw "$errors check(s) failed" }
 
-      - name: Smoke test - verify exe starts on Windows
+      - name: Smoke test - run exe on Windows and verify it stays alive
         shell: pwsh
         run: |
           Write-Host "Launching exe..."
-          $proc = Start-Process -FilePath "app-package\PDF Drawing Viewer.exe" -PassThru
-
-          Write-Host "Waiting 20 seconds for app to start..."
-          Start-Sleep -Seconds 20
-
+          $proc = Start-Process -FilePath "dist\PDF Drawing Viewer.exe" -PassThru
+          Write-Host "Waiting 25 seconds..."
+          Start-Sleep -Seconds 25
           if ($proc.HasExited) {
-            Write-Host "FAIL: Process exited early with code $($proc.ExitCode)"
-
-            # Print log file if it was written
-            $logFile = "$env:TEMP\pdf-drawing-viewer.log"
-            if (Test-Path $logFile) {
-              Write-Host "--- App log ---"
-              Get-Content $logFile
-            }
+            Write-Host "FAIL: process exited early (code $($proc.ExitCode))"
             exit 1
-          } else {
-            Write-Host "PASS: Process is still running after 20 seconds (PID $($proc.Id))"
-            Stop-Process -Id $proc.Id -Force
           }
+          Write-Host "PASS: process running after 25s (PID $($proc.Id))"
+          Stop-Process -Id $proc.Id -Force
 
-      - name: Zip the package
-        shell: pwsh
-        run: |
-          Compress-Archive -Path "app-package/*" -DestinationPath "PDF-Drawing-Viewer-Windows.zip"
-          $size = (Get-Item "PDF-Drawing-Viewer-Windows.zip").Length / 1MB
-          Write-Host "Zip size: $([math]::Round($size, 1)) MB"
-
-      - name: Upload Windows zip as artifact
+      - name: Upload Windows exe as artifact
         uses: actions/upload-artifact@v4
         with:
           name: PDF-Drawing-Viewer-Windows
-          path: PDF-Drawing-Viewer-Windows.zip
+          path: "dist/PDF Drawing Viewer.exe"
           if-no-files-found: error
           retention-days: 30
