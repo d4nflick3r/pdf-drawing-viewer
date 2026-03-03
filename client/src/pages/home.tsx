@@ -248,18 +248,34 @@ export default function Home() {
 
       const mx = (m.x1 + m.x2) / 2;
       const my = (m.y1 + m.y2) / 2;
-      const label = `${m.realLength.toFixed(2)} ${m.unit}`;
+      const distLabel = `${m.realLength.toFixed(2)} ${m.unit}`;
       ctx.setLineDash([]);
+
+      let distY = my;
+      if (m.label) {
+        ctx.font = "bold 11px sans-serif";
+        const lw = ctx.measureText(m.label).width + 12;
+        ctx.fillStyle = "rgba(30,30,30,0.82)";
+        ctx.beginPath();
+        ctx.roundRect(mx - lw / 2, my - 28, lw, 18, 4);
+        ctx.fill();
+        ctx.fillStyle = "#fff";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(m.label, mx, my - 19);
+        distY = my + 2;
+      }
+
       ctx.fillStyle = "rgba(0,80,200,0.85)";
-      const tw = ctx.measureText(label).width + 12;
+      const tw = ctx.measureText(distLabel).width + 12;
+      ctx.font = "bold 11px sans-serif";
       ctx.beginPath();
-      ctx.roundRect(mx - tw / 2, my - 11, tw, 20, 4);
+      ctx.roundRect(mx - tw / 2, distY - 11, tw, 20, 4);
       ctx.fill();
       ctx.fillStyle = "#fff";
-      ctx.font = "bold 11px sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.fillText(label, mx, my);
+      ctx.fillText(distLabel, mx, distY);
 
       ctx.fillStyle = "#0066ff";
       ctx.beginPath();
@@ -568,6 +584,10 @@ export default function Home() {
 
   const deleteMeasurement = (id: string) => {
     setMeasurements((prev) => prev.filter((m) => m.id !== id));
+  };
+
+  const updateMeasurementLabel = (id: string, label: string) => {
+    setMeasurements((prev) => prev.map((m) => m.id === id ? { ...m, label } : m));
   };
 
   const fitToPage = () => {
@@ -938,25 +958,35 @@ export default function Home() {
                   {activePageMeasurements.map((m) => (
                     <div
                       key={m.id}
-                      className="group flex items-start gap-2 rounded-md px-2 py-1.5 hover-elevate bg-background mb-1"
+                      className="group rounded-md px-2 py-1.5 hover-elevate bg-background mb-1"
                       data-testid={`measurement-item-${m.id}`}
                     >
-                      <Ruler className="w-3.5 h-3.5 text-blue-500 mt-0.5 shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-blue-600 dark:text-blue-400">
-                          {m.realLength.toFixed(3)} {m.unit}
-                        </p>
-                        <p className="text-xs text-muted-foreground">{m.pixelLength.toFixed(0)}px on drawing</p>
+                      <div className="flex items-start gap-2">
+                        <Ruler className="w-3.5 h-3.5 text-blue-500 mt-1 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <input
+                            type="text"
+                            value={m.label}
+                            onChange={(e) => updateMeasurementLabel(m.id, e.target.value)}
+                            placeholder="Add label..."
+                            className="w-full text-xs bg-transparent border-0 border-b border-transparent focus:border-border outline-none text-foreground placeholder:text-muted-foreground/50 pb-0.5 mb-0.5 transition-colors"
+                            data-testid={`input-measurement-label-${m.id}`}
+                          />
+                          <p className="text-sm font-semibold text-blue-600 dark:text-blue-400">
+                            {m.realLength.toFixed(3)} {m.unit}
+                          </p>
+                          <p className="text-xs text-muted-foreground">{m.pixelLength.toFixed(0)}px on drawing</p>
+                        </div>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 w-6 h-6 mt-0.5"
+                          onClick={() => deleteMeasurement(m.id)}
+                          data-testid={`button-delete-measurement-${m.id}`}
+                        >
+                          <X className="w-3 h-3" />
+                        </Button>
                       </div>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 w-6 h-6"
-                        onClick={() => deleteMeasurement(m.id)}
-                        data-testid={`button-delete-measurement-${m.id}`}
-                      >
-                        <X className="w-3 h-3" />
-                      </Button>
                     </div>
                   ))}
                 </div>
