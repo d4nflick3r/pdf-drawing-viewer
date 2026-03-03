@@ -1,0 +1,44 @@
+name: Build Windows App
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build frontend (with relative asset paths for file:// protocol)
+        run: npx vite build --base=./
+        env:
+          NODE_ENV: production
+
+      - name: Install Electron and electron-builder
+        run: npm install --no-save electron electron-builder
+
+      - name: Build Windows installer
+        run: npx electron-builder --win --x64
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Windows installer as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PDF-Drawing-Viewer-Windows-Setup
+          path: dist-electron/*.exe
+          if-no-files-found: error
+          retention-days: 30
