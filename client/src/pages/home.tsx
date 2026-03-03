@@ -581,7 +581,12 @@ export default function Home() {
       const parts = scaleRatio.split(":").map((p) => parseFloat(p.trim()));
       if (parts.length === 2 && parts[0] > 0 && parts[1] > 0) {
         const factor = parts[1] / parts[0];
-        const ppu = 1 / (factor * 0.001);
+        // PDF uses points (1 pt = 1/72 inch). pdfjs renders 1 PDF pt = 1px at scale=1.
+        // For scale 1:factor, 1 unit of output in reality = 1/factor units on drawing.
+        // 1/factor units on drawing in mm = mmPerUnit/factor mm = (mmPerUnit/factor)*(72/25.4) PDF pts.
+        // So ppu (PDF pts per output unit) = mmPerUnit * 72 / (factor * 25.4)
+        const mmPerUnit: Record<ScaleUnit, number> = { mm: 1, cm: 10, m: 1000, ft: 304.8, in: 25.4 };
+        const ppu = (mmPerUnit[scaleUnit] * 72) / (factor * 25.4);
         setScale({ pixelsPerUnit: ppu, unit: scaleUnit, drawingRatio: scaleRatio, calibrated: true });
         setMeasurements((prev) =>
           prev.map((m) => ({
@@ -636,6 +641,17 @@ export default function Home() {
     { id: "highlight", icon: Highlighter, label: "Highlight", shortcut: "L" },
     { id: "note", icon: StickyNote, label: "Note", shortcut: "N" },
   ];
+
+  useEffect(() => {
+    const handler = (e: WheelEvent) => {
+      if (!e.ctrlKey) return;
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? -0.15 : 0.15;
+      setZoom((z) => Math.min(5, Math.max(0.1, +(z + delta).toFixed(2))));
+    };
+    window.addEventListener("wheel", handler, { passive: false });
+    return () => window.removeEventListener("wheel", handler);
+  }, []);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
