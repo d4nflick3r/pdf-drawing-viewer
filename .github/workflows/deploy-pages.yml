@@ -35,7 +35,7 @@ jobs:
         run: npm ci
 
       - name: Build frontend
-        run: npx vite build --base=./
+        run: npx vite build --base=/pdf-drawing-viewer/
         env:
           NODE_ENV: production
 
