@@ -38,6 +38,7 @@ import {
   ZoomIn,
   ZoomOut,
   Maximize2,
+  RotateCw,
   ChevronLeft,
   ChevronRight,
   Upload,
@@ -130,8 +131,10 @@ export default function Home() {
   const [showScaleSetup, setShowScaleSetup] = useState(false);
   const [scaleMode, setScaleMode] = useState<"ratio" | "calibrate">("ratio");
 
+  const [rotation, setRotation] = useState(0);
   const [renderedPage, setRenderedPage] = useState(0);
   const [renderedZoom, setRenderedZoom] = useState(0);
+  const [renderedRotation, setRenderedRotation] = useState(-1);
 
   const pageRef = useRef<any>(null);
   const pageScaleRef = useRef(1);
@@ -159,12 +162,12 @@ export default function Home() {
 
   const renderPage = useCallback(async () => {
     if (!pdfDoc || !canvasRef.current) return;
-    if (renderedPage === currentPage && renderedZoom === zoom) return;
+    if (renderedPage === currentPage && renderedZoom === zoom && renderedRotation === rotation) return;
 
     try {
       const page = await pdfDoc.getPage(currentPage);
       pageRef.current = page;
-      const viewport = page.getViewport({ scale: zoom });
+      const viewport = page.getViewport({ scale: zoom, rotation });
       pageScaleRef.current = zoom;
 
       const canvas = canvasRef.current;
@@ -181,10 +184,11 @@ export default function Home() {
 
       setRenderedPage(currentPage);
       setRenderedZoom(zoom);
+      setRenderedRotation(rotation);
     } catch (e) {
       console.error("Render error", e);
     }
-  }, [pdfDoc, currentPage, zoom, renderedPage, renderedZoom]);
+  }, [pdfDoc, currentPage, zoom, rotation, renderedPage, renderedZoom, renderedRotation]);
 
   useEffect(() => {
     renderPage();
@@ -646,6 +650,20 @@ export default function Home() {
             >
               <Maximize2 className="w-4 h-4" />
             </Button>
+            <Separator orientation="vertical" className="h-4 mx-0.5" />
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => setRotation((r) => (r + 90) % 360)}
+                  data-testid="button-rotate"
+                >
+                  <RotateCw className="w-4 h-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Rotate 90°</TooltipContent>
+            </Tooltip>
           </div>
         )}
 
