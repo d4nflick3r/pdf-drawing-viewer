@@ -130,6 +130,7 @@ export default function Home() {
 
   const [showScaleSetup, setShowScaleSetup] = useState(false);
   const [scaleMode, setScaleMode] = useState<"ratio" | "calibrate">("ratio");
+  const [scaleCalibLine, setScaleCalibLine] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
 
   const [rotation, setRotation] = useState(0);
   const [renderedPage, setRenderedPage] = useState(0);
@@ -270,6 +271,40 @@ export default function Home() {
       ctx.restore();
     }
 
+    if (scaleCalibLine) {
+      const sl = scaleCalibLine;
+      ctx.save();
+      ctx.strokeStyle = "#ff6600";
+      ctx.lineWidth = 2;
+      ctx.setLineDash([6, 3]);
+      ctx.beginPath();
+      ctx.moveTo(sl.x1, sl.y1);
+      ctx.lineTo(sl.x2, sl.y2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = "#ff6600";
+      ctx.beginPath();
+      ctx.arc(sl.x1, sl.y1, 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(sl.x2, sl.y2, 4, 0, Math.PI * 2);
+      ctx.fill();
+      const mx = (sl.x1 + sl.x2) / 2;
+      const my = (sl.y1 + sl.y2) / 2;
+      const label = "Scale ref";
+      ctx.fillStyle = "rgba(200,80,0,0.85)";
+      const tw = ctx.measureText(label).width + 12;
+      ctx.beginPath();
+      ctx.roundRect(mx - tw / 2, my - 11, tw, 20, 4);
+      ctx.fill();
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 11px sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(label, mx, my);
+      ctx.restore();
+    }
+
     if (isDrawing.current && drawStart.current && drawCurrent.current) {
       const ds = drawStart.current;
       const dc = drawCurrent.current;
@@ -343,7 +378,7 @@ export default function Home() {
       }
       ctx.restore();
     }
-  }, [annotations, measurements, currentPage, tool, scale, selectedColor]);
+  }, [annotations, measurements, currentPage, tool, scale, selectedColor, scaleCalibLine]);
 
   useEffect(() => {
     drawOverlay();
@@ -426,6 +461,7 @@ export default function Home() {
         createdAt: Date.now(),
       };
       setMeasurements((prev) => [...prev, m]);
+      setTool("pan");
     } else if (tool === "highlight" || tool === "note") {
       const rx = Math.min(ds.x, pos.x);
       const ry = Math.min(ds.y, pos.y);
@@ -456,6 +492,7 @@ export default function Home() {
         x2: pos.x, y2: pos.y,
         pixelLength: pxLen,
       };
+      setScaleCalibLine({ x1: sd.x, y1: sd.y, x2: pos.x, y2: pos.y });
       scaleDrawStart.current = null;
       scaleDrawCurrent.current = null;
       setShowScaleDialog(true);
@@ -565,6 +602,16 @@ export default function Home() {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.ctrlKey && (e.key === "ArrowUp" || e.key === "=")) {
+        e.preventDefault();
+        setZoom((z) => Math.min(5, z + 0.25));
+        return;
+      }
+      if (e.ctrlKey && (e.key === "ArrowDown" || e.key === "-")) {
+        e.preventDefault();
+        setZoom((z) => Math.max(0.1, z - 0.25));
+        return;
+      }
       if (e.key === "v" || e.key === "V") setTool("select");
       if (e.key === "h" || e.key === "H") setTool("pan");
       if (e.key === "m" || e.key === "M") setTool("measure");
