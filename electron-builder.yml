@@ -2,6 +2,8 @@ appId: com.drawingviewer.pdf
 productName: PDF Drawing Viewer
 copyright: Copyright © 2025
 
+asar: false
+
 directories:
   output: dist-electron
 
