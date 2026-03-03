@@ -22,7 +22,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build frontend (relative asset paths for file:// protocol)
+      - name: Build frontend
         run: npx vite build --base=./
         env:
           NODE_ENV: production
@@ -30,38 +30,81 @@ jobs:
       - name: Install Electron
         run: npm install --no-save electron
 
-      - name: Package app manually from Electron binaries
+      - name: Package app from Electron binaries
         shell: pwsh
         run: |
           $src = "node_modules/electron/dist"
           $out = "app-package"
 
-          # Copy Electron binaries as the base
+          # Copy Electron runtime as the base
           Copy-Item -Recurse "$src" "$out"
 
-          # Remove the default placeholder app
+          # Remove default placeholder app if present
           $defaultApp = "$out/resources/default_app.asar"
           if (Test-Path $defaultApp) { Remove-Item $defaultApp }
 
-          # Create our app structure inside resources/app/
+          # Create our app structure
           New-Item -ItemType Directory -Force -Path "$out/resources/app/dist"
           New-Item -ItemType Directory -Force -Path "$out/resources/app/electron"
 
-          # Copy built frontend and main process
+          # Copy built frontend and Electron main process
           Copy-Item -Recurse "dist/public" "$out/resources/app/dist/"
           Copy-Item "electron/main.cjs" "$out/resources/app/electron/"
 
-          # Write minimal package.json that tells Electron where to start
+          # package.json: tells Electron which file is the entry point
           Set-Content -Path "$out/resources/app/package.json" -Value '{"name":"pdf-drawing-viewer","version":"1.0.0","main":"electron/main.cjs","description":"PDF Drawing Viewer"}'
 
-          # Rename the exe to something friendly
+          # Rename exe
           Rename-Item "$out/electron.exe" "PDF Drawing Viewer.exe"
 
-          # Zip the entire package
-          Compress-Archive -Path "$out/*" -DestinationPath "PDF-Drawing-Viewer-Windows.zip"
+      - name: Validate package structure
+        shell: pwsh
+        run: |
+          $errors = 0
 
-          Write-Host "Done. Contents:"
-          Get-ChildItem "$out" | Select-Object Name
+          $checks = @(
+            "app-package/PDF Drawing Viewer.exe",
+            "app-package/resources/app/electron/main.cjs",
+            "app-package/resources/app/dist/public/index.html",
+            "app-package/resources/app/package.json"
+          )
+
+          foreach ($file in $checks) {
+            if (Test-Path $file) {
+              Write-Host "PASS: $file"
+            } else {
+              Write-Host "FAIL: $file NOT FOUND"
+              $errors++
+            }
+          }
+
+          $pkg = Get-Content "app-package/resources/app/package.json" | ConvertFrom-Json
+          if ($pkg.main -eq "electron/main.cjs") {
+            Write-Host "PASS: package.json main = $($pkg.main)"
+          } else {
+            Write-Host "FAIL: package.json main = $($pkg.main)"
+            $errors++
+          }
+
+          $assets = Get-ChildItem "app-package/resources/app/dist/public/assets" -ErrorAction SilentlyContinue
+          if ($assets.Count -gt 0) {
+            Write-Host "PASS: $($assets.Count) asset files found"
+          } else {
+            Write-Host "FAIL: no assets found in dist/public/assets"
+            $errors++
+          }
+
+          if ($errors -gt 0) {
+            throw "$errors validation check(s) failed"
+          }
+          Write-Host "All validation checks passed."
+
+      - name: Zip the package
+        shell: pwsh
+        run: |
+          Compress-Archive -Path "app-package/*" -DestinationPath "PDF-Drawing-Viewer-Windows.zip"
+          $size = (Get-Item "PDF-Drawing-Viewer-Windows.zip").Length / 1MB
+          Write-Host "Zip size: $([math]::Round($size, 1)) MB"
 
       - name: Upload Windows zip as artifact
         uses: actions/upload-artifact@v4
