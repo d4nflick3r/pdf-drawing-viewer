@@ -10,13 +10,14 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      webSecurity: true,
+      webSecurity: false,
     },
     title: 'PDF Drawing Viewer',
     show: false,
   });
 
-  const indexPath = path.join(__dirname, '..', 'dist', 'public', 'index.html');
+  // app.getAppPath() correctly resolves inside packaged executables
+  const indexPath = path.join(app.getAppPath(), 'dist', 'public', 'index.html');
   win.loadFile(indexPath);
 
   win.once('ready-to-show', () => {
